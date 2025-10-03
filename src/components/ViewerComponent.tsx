@@ -69,7 +69,7 @@ export default function ViewerComponent({ roomId }: Readonly<ViewerComponentProp
       });
 
       // Monitor ICE connection state
-      const pc = (newPeer as any)._pc as RTCPeerConnection;
+      const pc = (newPeer as unknown as { _pc: RTCPeerConnection })._pc;
       if (pc) {
         pc.addEventListener('iceconnectionstatechange', () => {
           console.log('Viewer ICE connection state:', pc.iceConnectionState);

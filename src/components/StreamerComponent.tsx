@@ -60,7 +60,7 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
     });
 
     // Monitor ICE connection state
-    const pc = (peer as any)._pc as RTCPeerConnection;
+    const pc = (peer as unknown as { _pc: RTCPeerConnection })._pc;
     if (pc) {
       pc.addEventListener('iceconnectionstatechange', () => {
         console.log('Streamer ICE connection state with viewer', viewerId, ':', pc.iceConnectionState);
