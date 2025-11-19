@@ -1,0 +1,38 @@
+services:
+  # Next.js application service
+  app:
+    build: ./app
+    container_name: video-stream-app
+    environment:
+      - NODE_ENV=production
+
+  # Nginx service to handle HTTPS traffic
+  nginx:
+    image: nginx:alpine
+    container_name: video-stream-nginx
+    environment:
+      - NGINX_HOST=localhost
+      - NGINX_PORT=443
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+      cert-generator:
+        condition: service_completed_successfully
+
+  # Service to generate self-signed SSL certificates if they do not exist
+  cert-generator:
+    image: alpine:latest
+    container_name: ssl-cert-generator
+    volumes:
+      - ./nginx/ssl:/certs
+    command: sh -c "apk add --no-cache openssl && if [ ! -f /certs/nginx.crt ]; then echo 'Generating self-signed certificate...' && mkdir -p /certs && openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /certs/nginx.key -out /certs/nginx.crt -subj '/C=US/ST=State/L=City/O=Organization/CN=localhost' && echo 'Certificate generated successfully'; else echo 'Certificate already exists'; fi && echo 'Certificate check complete' && sleep 2"
+    restart: "no"
