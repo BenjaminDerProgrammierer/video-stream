@@ -16,6 +16,12 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
   const [connectedViewers, setConnectedViewers] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
   const peers = useRef<{ [key: string]: Peer.Instance }>({});
+  
+  // Device selection state
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedVideoDevice, setSelectedVideoDevice] = useState<string>('');
+  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>('');
 
   const createPeerConnection = useCallback((viewerId: string, initiator: boolean, socket: Socket) => {
     console.log('Creating peer connection for viewer:', viewerId, 'as initiator:', initiator, 'with stream:', !!stream);
@@ -83,6 +89,35 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
       newSocket.disconnect();
     };
   }, []);
+
+  // Enumerate media devices on component mount
+  useEffect(() => {
+    const getDevices = async () => {
+      try {
+        // Request permissions first
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(device => device.kind === 'videoinput');
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        
+        setVideoDevices(videoInputs);
+        setAudioDevices(audioInputs);
+        
+        // Set default devices
+        if (videoInputs.length > 0 && !selectedVideoDevice) {
+          setSelectedVideoDevice(videoInputs[0].deviceId);
+        }
+        if (audioInputs.length > 0 && !selectedAudioDevice) {
+          setSelectedAudioDevice(audioInputs[0].deviceId);
+        }
+      } catch (err) {
+        console.error('Error enumerating devices:', err);
+      }
+    };
+
+    getDevices();
+  }, [selectedVideoDevice, selectedAudioDevice]);
 
   // Handle socket events separately
   useEffect(() => {
@@ -163,19 +198,30 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
     try {
       setError('');
       
-      // Request camera and microphone access
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+      // Request camera and microphone access with selected devices
+      const constraints: MediaStreamConstraints = {
+        video: selectedVideoDevice ? {
+          deviceId: { exact: selectedVideoDevice },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } : {
           facingMode: 'user',
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
-        audio: {
+        audio: selectedAudioDevice ? {
+          deviceId: { exact: selectedAudioDevice },
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        } : {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 44100
         }
-      });
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
       setStream(mediaStream);
       
@@ -249,7 +295,7 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
             autoPlay
             muted
             playsInline
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         </div>
 
@@ -261,6 +307,46 @@ export default function StreamerComponent({ roomId }: Readonly<StreamerComponent
             Connected viewers: <span className="font-bold">{connectedViewers}</span>
           </p>
         </div>
+
+        {!isStreaming && (
+          <div className="space-y-4 mb-4">
+            <div>
+              <label htmlFor="video-select" className="block text-sm font-medium text-gray-900 mb-2">
+                Camera
+              </label>
+              <select
+                id="video-select"
+                value={selectedVideoDevice}
+                onChange={(e) => setSelectedVideoDevice(e.target.value)}
+                className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {videoDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Camera ${device.deviceId.substring(0, 8)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="audio-select" className="block text-sm font-medium text-gray-900 mb-2">
+                Microphone
+              </label>
+              <select
+                id="audio-select"
+                value={selectedAudioDevice}
+                onChange={(e) => setSelectedAudioDevice(e.target.value)}
+                className="w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {audioDevices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label || `Microphone ${device.deviceId.substring(0, 8)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap justify-center gap-3">
           {!isStreaming ? (

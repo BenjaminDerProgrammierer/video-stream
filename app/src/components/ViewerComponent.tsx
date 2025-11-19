@@ -232,7 +232,7 @@ export default function ViewerComponent({ roomId }: Readonly<ViewerComponentProp
             autoPlay
             playsInline
             controls={isConnected}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
 
           {!isConnected && !stream && (
