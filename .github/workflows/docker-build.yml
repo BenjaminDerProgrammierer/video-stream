@@ -78,7 +78,7 @@ jobs:
           labels: ${{ steps.meta-app.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
 
       - name: Build and push nginx image
         uses: docker/build-push-action@v5
@@ -90,4 +90,4 @@ jobs:
           labels: ${{ steps.meta-nginx.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
